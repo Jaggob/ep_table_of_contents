@@ -81,4 +81,32 @@ test.describe('table of contents numbering', () => {
     await expect(tocItems.nth(9)).toHaveText('10. Section 10');
     await expect(tocItems.nth(24)).toHaveText('25. Section 25');
   });
+
+  test('keeps the cursor section highlighted after TOC rerenders', async ({page}) => {
+    await writeToPad(page, 'Document title');
+    await page.keyboard.press('Enter');
+    await writeToPad(page, 'First section');
+    await page.keyboard.press('Enter');
+    await writeToPad(page, 'First body');
+    await page.keyboard.press('Enter');
+    await writeToPad(page, 'Second section');
+    await page.keyboard.press('Enter');
+    await writeToPad(page, 'Second body');
+
+    await applyHeading(page, 0, 1);
+    await applyHeading(page, 1, 2);
+    await applyHeading(page, 3, 2);
+
+    const tocItems = page.locator('#tocItems .tocItem');
+    await expect(tocItems).toHaveCount(3);
+
+    const padBody = await getPadBody(page);
+    await padBody.locator('div').nth(4).click();
+    await page.keyboard.type(' updated');
+
+    const activeTocItem = page.locator('#tocItems .tocItem.activeTOC');
+    await expect(activeTocItem).toHaveText('2. Second section');
+    await page.waitForTimeout(500);
+    await expect(activeTocItem).toHaveText('2. Second section');
+  });
 });

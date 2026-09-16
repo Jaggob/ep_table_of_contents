@@ -72,6 +72,11 @@ if (typeof $ !== 'undefined') {
 // `global` in Node.js, so the Node unit tests keep working too.
 const tableOfContents = globalThis.tableOfContents = {
 
+  _activeTocIndex: null,
+  _latestRep: null,
+  _findTagsTimer: null,
+  _findTagsPending: false,
+
   enable() {
     $('#toc').show();
     this.update();
@@ -120,8 +125,12 @@ const tableOfContents = globalThis.tableOfContents = {
       });
     });
 
-    const outlineEntries = getOutlineEntries(toc);
     clientVars.plugins.plugins.ep_table_of_context = toc;
+    if (tableOfContents._latestRep) {
+      tableOfContents._activeTocIndex = tableOfContents.getActiveTocIndex(tableOfContents._latestRep, toc);
+    }
+
+    const outlineEntries = getOutlineEntries(toc);
     $('#tocItems').html('');
     $.each(outlineEntries, (index, entry) => {
       const label = entry.numbering ? `${entry.numbering}. ${entry.text}` : entry.text;
@@ -129,7 +138,8 @@ const tableOfContents = globalThis.tableOfContents = {
         text: label,
         title: entry.text,
         href: '#',
-        class: `tocItem tocDepth${Math.min(entry.displayDepth, 6)}`,
+        class: `tocItem tocDepth${Math.min(entry.displayDepth, 6)}` +
+            `${index === tableOfContents._activeTocIndex ? ' activeTOC' : ''}`,
         click: () => { tableOfContents.scroll(`${entry.y}`); return false; },
       });
       $link.attr('data-toc-index', index);
@@ -145,25 +155,33 @@ const tableOfContents = globalThis.tableOfContents = {
     }
   },
 
-  // show the current position
-  showPosition: (rep) => {
-    // We need to know current line # -- see rep
-    // And we need to know what section is before this line number
-    const toc = clientVars.plugins.plugins.ep_table_of_context;
-    if (!toc) return false;
+  getActiveTocIndex: (rep, toc) => {
+    if (!rep || !toc) return null;
     const repLineNumber = rep.selEnd[0]; // line Number
-
-    // So given a line number of 10 and a toc of [4,8,12] we want to find 8..
     let activeTocIndex = null;
     $.each(toc, (k, line) => {
       if (repLineNumber >= line.lineNumber) {
         activeTocIndex = Number(k);
       }
     });
+    return activeTocIndex;
+  },
 
+  applyActiveTocIndex: () => {
     $('.tocItem').removeClass('activeTOC');
-    if (activeTocIndex === null) return;
-    $(`.tocItem[data-toc-index="${activeTocIndex}"]`).addClass('activeTOC');
+    if (tableOfContents._activeTocIndex === null) return;
+    $(`.tocItem[data-toc-index="${tableOfContents._activeTocIndex}"]`).addClass('activeTOC');
+  },
+
+  // show the current position
+  showPosition: (rep) => {
+    // We need to know current line # -- see rep
+    // And we need to know what section is before this line number
+    tableOfContents._latestRep = rep;
+    const toc = clientVars.plugins.plugins.ep_table_of_context;
+    if (!toc) return false;
+    tableOfContents._activeTocIndex = tableOfContents.getActiveTocIndex(rep, toc);
+    tableOfContents.applyActiveTocIndex();
   },
 
   // findTags() walks every heading and rebuilds the entire ToC DOM. On
@@ -171,9 +189,8 @@ const tableOfContents = globalThis.tableOfContents = {
   // every keystroke and produced the 1-char-per-second typing seen in
   // #51. Debounce the expensive scan — still fast enough to feel
   // responsive, but no longer fires per keystroke.
-  _findTagsTimer: null,
-  _findTagsPending: false,
   scheduleFindTags: (rep) => {
+    tableOfContents._latestRep = rep || tableOfContents._latestRep;
     if (tableOfContents._findTagsTimer != null) {
       tableOfContents._findTagsPending = true;
       return;
