@@ -109,4 +109,33 @@ test.describe('table of contents numbering', () => {
     await page.waitForTimeout(500);
     await expect(activeTocItem).toHaveText('2. Second section');
   });
+
+  test('clicking a TOC entry moves the cursor to that heading end', async ({page}) => {
+    await writeToPad(page, 'Document title');
+    await page.keyboard.press('Enter');
+    await writeToPad(page, 'First section');
+    await page.keyboard.press('Enter');
+    await writeToPad(page, 'First body');
+    await page.keyboard.press('Enter');
+    await writeToPad(page, 'Second section');
+    await page.keyboard.press('Enter');
+    await writeToPad(page, 'Second body');
+
+    await applyHeading(page, 0, 1);
+    await applyHeading(page, 1, 2);
+    await applyHeading(page, 3, 2);
+
+    const tocItems = page.locator('#tocItems .tocItem');
+    await expect(tocItems).toHaveCount(3);
+
+    await tocItems.nth(2).click();
+    await expect(page.locator('#tocItems .tocItem.activeTOC')).toHaveText('2. Second section');
+
+    await page.keyboard.type(' updated');
+    await page.waitForTimeout(500);
+    await expect(page.locator('#tocItems .tocItem.activeTOC')).toHaveText('2. Second section');
+
+    const padBody = await getPadBody(page);
+    await expect(padBody.locator('div').nth(3)).toContainText('Second section updated');
+  });
 });

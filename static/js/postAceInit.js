@@ -5,6 +5,7 @@
 // `toggle` reach server-only modules (eejs, Settings) which esbuild can't
 // resolve for the browser.
 const {padToggle} = require('ep_plugin_helpers/pad-toggle');
+const {padeditor} = require('ep_etherpad-lite/static/js/pad_editor');
 
 // postAceInit is loaded as a CommonJS plugin hook module; its scope is not
 // the same as the <script> tag that loads toc.js, so `tableOfContents` is
@@ -41,6 +42,21 @@ exports.postAceInit = () => {
   }
   const toc = getToc();
   if (!toc) return;
+
+  toc.setEditorCursorLineEnd = (lineNumber) => {
+    padeditor.ace.callWithAce((ace) => {
+      const rep = ace.ace_getRep();
+      const targetLineNumber = Math.max(0, Math.min(lineNumber, rep.lines.length() - 1));
+      const targetColumn = rep.lines.atIndex(targetLineNumber).text.length;
+      ace.ace_performSelectionChange(
+          [targetLineNumber, targetColumn],
+          [targetLineNumber, targetColumn],
+          false,
+      );
+      ace.ace_updateBrowserSelectionFromRep();
+      ace.ace_focus();
+    }, 'ep_table_of_contents-click', true);
+  };
 
   const state = tocToggle.init({
     onChange: (enabled) => { enabled ? toc.enable() : toc.disable(); },

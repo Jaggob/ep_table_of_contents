@@ -140,7 +140,11 @@ const tableOfContents = globalThis.tableOfContents = {
         href: '#',
         class: `tocItem tocDepth${Math.min(entry.displayDepth, 6)}` +
             `${index === tableOfContents._activeTocIndex ? ' activeTOC' : ''}`,
-        click: () => { tableOfContents.scroll(`${entry.y}`); return false; },
+        click: () => {
+          tableOfContents.scroll(`${entry.y}`);
+          tableOfContents.setCursorToTocEntry(index);
+          return false;
+        },
       });
       $link.attr('data-toc-index', index);
       $link.data('offset', `${entry.y}`);
@@ -171,6 +175,17 @@ const tableOfContents = globalThis.tableOfContents = {
     $('.tocItem').removeClass('activeTOC');
     if (tableOfContents._activeTocIndex === null) return;
     $(`.tocItem[data-toc-index="${tableOfContents._activeTocIndex}"]`).addClass('activeTOC');
+  },
+
+  setCursorToTocEntry: (tocIndex) => {
+    const toc = clientVars.plugins.plugins.ep_table_of_context;
+    const entry = toc?.[tocIndex];
+    if (!entry) return;
+
+    tableOfContents.setEditorCursorLineEnd?.(entry.lineNumber);
+
+    tableOfContents._activeTocIndex = tocIndex;
+    tableOfContents.applyActiveTocIndex();
   },
 
   // show the current position
