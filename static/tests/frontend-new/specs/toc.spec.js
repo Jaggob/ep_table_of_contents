@@ -67,7 +67,7 @@ test.describe('table of contents numbering', () => {
   });
 
   test('keeps all TOC entries for larger sets of sibling headings', async ({page}) => {
-    const headingCount = 25;
+    const headingCount = 50;
     await writeSections(page, headingCount, 'Section');
 
     const tocItems = page.locator('#tocItems .tocItem');
@@ -79,7 +79,7 @@ test.describe('table of contents numbering', () => {
     await expect(tocItems).toHaveCount(headingCount);
     await expect(tocItems.nth(0)).toHaveText('1. Section 1');
     await expect(tocItems.nth(9)).toHaveText('10. Section 10');
-    await expect(tocItems.nth(24)).toHaveText('25. Section 25');
+    await expect(tocItems.nth(49)).toHaveText('50. Section 50');
   });
 
   test('keeps the cursor section highlighted after TOC rerenders', async ({page}) => {

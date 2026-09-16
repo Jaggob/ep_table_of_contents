@@ -57,6 +57,24 @@ const getOutlineEntries = (toc) => {
   });
 };
 
+const getActiveTocIndexForLine = (lineNumber, toc) => {
+  if (lineNumber == null || !toc || toc.length === 0) return null;
+
+  let activeTocIndex = null;
+  let lower = 0;
+  let upper = toc.length - 1;
+  while (lower <= upper) {
+    const middle = Math.floor((lower + upper) / 2);
+    if (toc[middle].lineNumber <= lineNumber) {
+      activeTocIndex = middle;
+      lower = middle + 1;
+    } else {
+      upper = middle - 1;
+    }
+  }
+  return activeTocIndex;
+};
+
 if (typeof $ !== 'undefined') {
   $('#tocButton').click(() => {
     $('#toc').toggle();
@@ -131,7 +149,7 @@ const tableOfContents = globalThis.tableOfContents = {
     }
 
     const outlineEntries = getOutlineEntries(toc);
-    $('#tocItems').html('');
+    const fragment = document.createDocumentFragment();
     $.each(outlineEntries, (index, entry) => {
       const label = entry.numbering ? `${entry.numbering}. ${entry.text}` : entry.text;
       const $link = $('<a>', {
@@ -147,9 +165,10 @@ const tableOfContents = globalThis.tableOfContents = {
         },
       });
       $link.attr('data-toc-index', index);
-      $link.data('offset', `${entry.y}`);
-      $link.appendTo('#tocItems');
+      $link.attr('data-offset', `${entry.y}`);
+      fragment.appendChild($link[0]);
     });
+    $('#tocItems').empty().append(fragment);
   },
 
   // get HTML
@@ -160,21 +179,21 @@ const tableOfContents = globalThis.tableOfContents = {
   },
 
   getActiveTocIndex: (rep, toc) => {
-    if (!rep || !toc) return null;
+    if (!rep || !rep.selEnd || !toc) return null;
     const repLineNumber = rep.selEnd[0]; // line Number
-    let activeTocIndex = null;
-    $.each(toc, (k, line) => {
-      if (repLineNumber >= line.lineNumber) {
-        activeTocIndex = Number(k);
-      }
-    });
-    return activeTocIndex;
+    return getActiveTocIndexForLine(repLineNumber, toc);
   },
 
-  applyActiveTocIndex: () => {
-    $('.tocItem').removeClass('activeTOC');
-    if (tableOfContents._activeTocIndex === null) return;
-    $(`.tocItem[data-toc-index="${tableOfContents._activeTocIndex}"]`).addClass('activeTOC');
+  setActiveTocIndex: (activeTocIndex) => {
+    if (tableOfContents._activeTocIndex === activeTocIndex) return;
+    const previousTocIndex = tableOfContents._activeTocIndex;
+    tableOfContents._activeTocIndex = activeTocIndex;
+    if (previousTocIndex !== null) {
+      $(`.tocItem[data-toc-index="${previousTocIndex}"]`).removeClass('activeTOC');
+    }
+    if (activeTocIndex !== null) {
+      $(`.tocItem[data-toc-index="${activeTocIndex}"]`).addClass('activeTOC');
+    }
   },
 
   setCursorToTocEntry: (tocIndex) => {
@@ -184,8 +203,7 @@ const tableOfContents = globalThis.tableOfContents = {
 
     tableOfContents.setEditorCursorLineEnd?.(entry.lineNumber);
 
-    tableOfContents._activeTocIndex = tocIndex;
-    tableOfContents.applyActiveTocIndex();
+    tableOfContents.setActiveTocIndex(tocIndex);
   },
 
   // show the current position
@@ -195,8 +213,7 @@ const tableOfContents = globalThis.tableOfContents = {
     tableOfContents._latestRep = rep;
     const toc = clientVars.plugins.plugins.ep_table_of_context;
     if (!toc) return false;
-    tableOfContents._activeTocIndex = tableOfContents.getActiveTocIndex(rep, toc);
-    tableOfContents.applyActiveTocIndex();
+    tableOfContents.setActiveTocIndex(tableOfContents.getActiveTocIndex(rep, toc));
   },
 
   // findTags() walks every heading and rebuilds the entire ToC DOM. On
