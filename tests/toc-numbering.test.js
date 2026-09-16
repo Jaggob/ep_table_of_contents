@@ -18,12 +18,12 @@ const loadTocHelpers = () => {
     }),
   };
   sandbox.globalThis = sandbox;
-  vm.runInNewContext(`${source}
-globalThis.__tocTestExports = {getHeadingLevel, getOutlineEntries};`, sandbox, {filename: tocPath});
+vm.runInNewContext(`${source}
+globalThis.__tocTestExports = {getHeadingLevel, getOutlineEntries, getActiveTocIndexForLine};`, sandbox, {filename: tocPath});
   return sandbox.__tocTestExports;
 };
 
-const {getOutlineEntries} = loadTocHelpers();
+const {getActiveTocIndexForLine, getOutlineEntries} = loadTocHelpers();
 
 const makeEntries = (tags) => tags.map((tag, index) => ({
   tag,
@@ -87,4 +87,23 @@ test('keeps numbering stable across many sibling headings', () => {
   assert.deepEqual(summary[0], {depth: 1, numbering: '1'});
   assert.deepEqual(summary[99], {depth: 1, numbering: '100'});
   assert.deepEqual(summary[199], {depth: 1, numbering: '200'});
+});
+
+test('finds the active heading in large TOCs', () => {
+  const headingCount = 1000;
+  const toc = Array.from({length: headingCount}, (_, index) => ({
+    lineNumber: index * 3,
+  }));
+
+  assert.equal(getActiveTocIndexForLine(0, toc), 0);
+  assert.equal(getActiveTocIndexForLine(1499, toc), 499);
+  assert.equal(getActiveTocIndexForLine(2997, toc), 999);
+  assert.equal(getActiveTocIndexForLine(2999, toc), 999);
+});
+
+test('returns no active heading before the first TOC entry', () => {
+  const toc = [{lineNumber: 5}, {lineNumber: 10}];
+
+  assert.equal(getActiveTocIndexForLine(4, toc), null);
+  assert.equal(getActiveTocIndexForLine(5, toc), 0);
 });
